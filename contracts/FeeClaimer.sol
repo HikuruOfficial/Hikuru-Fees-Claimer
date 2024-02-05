@@ -1,12 +1,11 @@
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.9;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 
 contract FeeClaimer is ReentrancyGuard {
-    using SafeMath for uint256;
 
     mapping(address => uint256) private balances;
     mapping(address => uint256) private totalBalances;
@@ -18,6 +17,7 @@ contract FeeClaimer is ReentrancyGuard {
 
     event Deposited(address indexed user, uint256 amount);
     event FeesClaimed(address indexed user,uint256 amount);
+    event ClaimEnabledUpdated(bool isEnabled);
 
     modifier onlyHikuruOwner() {
         require(hikuruOwner==msg.sender, "Caller is not an owner");
@@ -28,19 +28,20 @@ contract FeeClaimer is ReentrancyGuard {
         hikuruOwner = _initialOwner;
     }
 
-    function deposit(address _user, uint256 _amount) public payable {
+    function deposit(address _user, uint256 _amount) public payable returns (bool) {
         require(_amount > 0, "Amount must be greater than 0");
         require(_user != address(0), "User address cannot be zero");
-
-        // If the token is the native currency (e.g., ETH), the contract should already have received the ETH
         require(msg.value >= _amount, "Sent ether does not match the specified amount");
 
-        balances[_user] = balances[_user].add(_amount);
-        totalBalances[_user] = totalBalances[_user].add(_amount);
-        totalTransactions[_user] = totalTransactions[_user].add(1);
+        balances[_user] += msg.value;
+        totalBalances[_user] += msg.value;
+        totalTransactions[_user] += 1;
 
-        emit Deposited(_user, _amount);
+        emit Deposited(_user, msg.value);
+
+        return true;
     }
+
 
     function claimAllFees() public nonReentrant{
         require(isClaimEnable, "Claiming is disabled");
@@ -51,7 +52,7 @@ contract FeeClaimer is ReentrancyGuard {
         require(_amount > 0, "Amount must be greater than 0");
 
         claiming[msg.sender] = true;
-        balances[msg.sender] = balances[msg.sender].sub(_amount);
+        balances[msg.sender] = 0;
     
         require(address(this).balance >= _amount, "Insufficient contract balance");
         (bool sent, ) = msg.sender.call{value: _amount}("");
@@ -60,6 +61,7 @@ contract FeeClaimer is ReentrancyGuard {
         claiming[msg.sender] = false;
         emit FeesClaimed(msg.sender, _amount);
     }
+
 
     function getBalance(address _user) public view returns (uint256) {
         return balances[_user];
@@ -77,10 +79,4 @@ contract FeeClaimer is ReentrancyGuard {
         isClaimEnable = _isEnabled;
     }
 
-    // Fallback function to accept ether
-    // receive() external payable {
-    //     if (msg.value > 0) {
-    //         deposit(address(0), msg.value);
-    //     }
-    // }
 }
