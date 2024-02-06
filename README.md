@@ -27,8 +27,9 @@ The `FeeClaimer` contract is designed to manage fees, yield, and gas claims with
 
 1. Clone the repository and navigate into it:
 
+
 ```shell
-git clone <repository-url>
+git clone https://github.com/HikuruOfficial/Hikuru-Fees-Claimer.git
 cd fee-claimer
 ```
 
